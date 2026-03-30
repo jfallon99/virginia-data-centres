@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Climate Signal — Virginia's Data Center Sprawl</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #fafbfc;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+
+  .page-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 36px 48px 44px;
+  }
+
+  /* ── Series header ── */
+  .series-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #1a1a2e;
+    margin-bottom: 24px;
+  }
+  .series-name { font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #1a1a2e; }
+  .series-divider { width: 1px; height: 14px; background: #d1d5db; }
+  .series-topic { font-size: 12px; font-weight: 500; color: #6b7280; }
+  .series-date { margin-left: auto; font-size: 11px; font-weight: 600; color: #9ca3af; }
+
+  /* ── Title ── */
+  .title-block { margin-bottom: 24px; }
+  .title-block h1 {
+    font-size: 36px; font-weight: 800; line-height: 1.15;
+    color: #1a1a2e; letter-spacing: -0.8px; margin-bottom: 10px;
+  }
+  .title-block h1 .accent { color: #dc2626; }
+  .title-block .standfirst {
+    font-size: 16px; font-weight: 400; line-height: 1.6;
+    color: #4b5563; max-width: 780px;
+  }
+
+  /* ── Map area ── */
+  .map-section { position: relative; margin-bottom: 20px; }
+
+  .map-and-controls {
+    display: flex;
+    gap: 0;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+  }
+
+  .map-container {
+    flex: 1;
+    position: relative;
+    min-height: 520px;
+  }
+
+  .map-container svg { display: block; width: 100%; height: 100%; }
+
+  /* County styling */
+  .county { fill: #f3f4f6; stroke: #e5e7eb; stroke-width: 0.5; }
+  .county.virginia { fill: #eef2f7; stroke: #d1d5db; stroke-width: 0.6; }
+  .county.highlight { fill: #e0e7f0; }
+  .state-border { fill: none; stroke: #9ca3af; stroke-width: 1.2; }
+  .virginia-border { fill: none; stroke: #1a1a2e; stroke-width: 1.8; }
+
+  /* Point markers */
+  .dc-existing { fill: #2563eb; stroke: #ffffff; stroke-width: 1; opacity: 0.85; cursor: pointer; }
+  .dc-existing:hover { opacity: 1; stroke-width: 2; }
+  .dc-proposed { fill: #d97706; stroke: #ffffff; stroke-width: 1; opacity: 0.85; cursor: pointer; }
+  .dc-proposed:hover { opacity: 1; stroke-width: 2; }
+  .dc-proposed.major { stroke: #92400e; stroke-width: 1.5; }
+  .site-threatened { fill: none; stroke: #dc2626; stroke-width: 2; cursor: pointer; opacity: 0.9; }
+  .site-threatened:hover { stroke-width: 3; opacity: 1; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #1a1a2e;
+    color: #ffffff;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 280px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+  }
+  .tooltip .tt-name { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .tooltip .tt-type { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .tooltip .tt-type.existing { color: #93c5fd; }
+  .tooltip .tt-type.proposed { color: #fcd34d; }
+  .tooltip .tt-type.threatened { color: #fca5a5; }
+  .tooltip .tt-detail { font-weight: 400; font-size: 12px; color: #d1d5db; }
+
+  /* Controls panel */
+  .controls-panel {
+    width: 240px;
+    padding: 20px;
+    border-left: 1px solid #e5e7eb;
+    background: #fafbfc;
+    flex-shrink: 0;
+  }
+  .controls-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: #9ca3af; margin-bottom: 16px;
+  }
+
+  .layer-toggle {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px; cursor: pointer; user-select: none;
+  }
+  .layer-toggle input { display: none; }
+  .toggle-box {
+    width: 18px; height: 18px; border-radius: 3px;
+    border: 2px solid #d1d5db; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .toggle-box .check { display: none; font-size: 11px; color: #fff; font-weight: 700; }
+  .layer-toggle input:checked + .toggle-box { border-color: transparent; }
+  .layer-toggle input:checked + .toggle-box .check { display: block; }
+  .layer-toggle input:checked + .toggle-box.blue { background: #2563eb; }
+  .layer-toggle input:checked + .toggle-box.amber { background: #d97706; }
+  .layer-toggle input:checked + .toggle-box.red { background: #dc2626; }
+
+  .toggle-label { font-size: 13px; font-weight: 500; color: #374151; line-height: 1.3; }
+  .toggle-count { font-size: 11px; font-weight: 400; color: #9ca3af; }
+
+  .controls-divider { height: 1px; background: #e5e7eb; margin: 16px 0; }
+
+  .controls-note {
+    font-size: 11px; font-weight: 400; color: #9ca3af; line-height: 1.5;
+  }
+
+  /* ── Key stats ── */
+  .stats-strip {
+    display: flex;
+    gap: 0;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    margin-bottom: 20px;
+  }
+  .stat-item {
+    flex: 1;
+    padding: 16px 18px;
+    border-right: 1px solid #e5e7eb;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-item .sv { font-size: 22px; font-weight: 800; color: #1a1a2e; letter-spacing: -0.5px; }
+  .stat-item .su { font-size: 10px; font-weight: 700; color: #dc2626; margin-top: 1px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-item .sd { font-size: 11.5px; font-weight: 400; color: #6b7280; margin-top: 4px; line-height: 1.45; }
+
+  /* ── Callout ── */
+  .callout {
+    border-left: 4px solid #dc2626;
+    background: #fef2f2;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .callout-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #dc2626; margin-bottom: 5px; }
+  .callout p { font-size: 13.5px; font-weight: 400; line-height: 1.6; color: #1a1a2e; }
+  .callout strong { font-weight: 700; }
+
+  /* ── Footer ── */
+  .footer {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-top: 12px; border-top: 1px solid #e5e7eb;
+  }
+  .footer-source { font-size: 10px; color: #9ca3af; line-height: 1.6; max-width: 700px; }
+  .footer-right { text-align: right; }
+  .footer-name { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+  .footer-url { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+  @media (max-width: 768px) {
+    .page-wrapper { padding: 20px 16px; }
+    .title-block h1 { font-size: 24px; }
+    .map-and-controls { flex-direction: column; }
+    .controls-panel { width: 100%; border-left: none; border-top: 1px solid #e5e7eb; }
+    .stats-strip { flex-direction: column; }
+    .stat-item { border-right: none; border-bottom: 1px solid #e5e7eb; }
+    .stat-item:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <div class="series-bar">
+    <div class="series-name">The Climate Signal</div>
+    <div class="series-divider"></div>
+    <div class="series-topic">Virginia's Data Center Sprawl</div>
+    <div class="series-date">MAR 2026</div>
+  </div>
+
+  <div class="title-block">
+    <h1>Virginia Was Supposed to Hit<br>100% Clean Electricity by 2045.<br><span class="accent">Data Centers May Have Killed That Goal.</span></h1>
+    <div class="standfirst">
+      70% of the world's internet traffic flows through Loudoun County, Virginia. The data centers that make that possible are now spreading south along the I-95 corridor — and the energy required to power them is forcing the state to build new gas plants, extend the life of coal plants, and pass the costs on to residents.
+    </div>
+  </div>
+
+  <div class="map-section">
+    <div class="map-and-controls">
+      <div class="map-container" id="map"></div>
+      <div class="controls-panel">
+        <div class="controls-title">Map Layers</div>
+
+        <label class="layer-toggle">
+          <input type="checkbox" id="toggle-existing" checked>
+          <div class="toggle-box blue"><span class="check">✓</span></div>
+          <div>
+            <div class="toggle-label">Existing data centres</div>
+            <div class="toggle-count">~579 across Virginia</div>
+          </div>
+        </label>
+
+        <label class="layer-toggle">
+          <input type="checkbox" id="toggle-proposed" checked>
+          <div class="toggle-box amber"><span class="check">✓</span></div>
+          <div>
+            <div class="toggle-label">Proposed / under construction</div>
+            <div class="toggle-count">Major expansion sites</div>
+          </div>
+        </label>
+
+        <label class="layer-toggle">
+          <input type="checkbox" id="toggle-threatened" checked>
+          <div class="toggle-box red"><span class="check">✓</span></div>
+          <div>
+            <div class="toggle-label">Threatened historic sites</div>
+            <div class="toggle-count">National battlefields & parks</div>
+          </div>
+        </label>
+
+        <div class="controls-divider"></div>
+
+        <div class="controls-note">
+          Hover over any point for details. Data centre locations are approximate cluster centres based on public reporting. Threatened sites show National Park Service and state boundaries.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-strip">
+    <div class="stat-item">
+      <div class="sv">28%</div>
+      <div class="su">of Dominion's electricity sales</div>
+      <div class="sd">Data centres are the only growing sector of electricity demand in Virginia.</div>
+    </div>
+    <div class="stat-item">
+      <div class="sv">+$444/yr</div>
+      <div class="su">projected residential bill increase</div>
+      <div class="sd">JLARC projects data centres could add $444/year to household electricity bills by 2040.</div>
+    </div>
+    <div class="stat-item">
+      <div class="sv">183%</div>
+      <div class="su">projected energy demand increase</div>
+      <div class="sd">JLARC: data centre energy demand could grow 183% over the next 15 years.</div>
+    </div>
+    <div class="stat-item">
+      <div class="sv">2,100</div>
+      <div class="su">acres — Digital Gateway</div>
+      <div class="sd">37 buildings, 14 substations, directly adjacent to Manassas National Battlefield Park.</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">The energy transition cost</div>
+    <p><strong>Dominion Energy "does not currently see a viable path towards full retirement of all carbon-emitting resources by 2045"</strong> — citing data centre demand. The utility's 2025 plan includes at least 1,447 megawatts (MW) of new fossil fuel generation, including a 944 MW gas plant near Richmond on the site of a former coal plant.</p>
+  </div>
+
+  <div class="footer">
+    <div class="footer-source">
+      Sources: JLARC (2024) · Piedmont Environmental Council · Inside Climate News (Jan 2026) · Virginia Mercury (Nov 2025)<br>
+      American Battlefield Trust · National Parks Conservation Association · Dominion Energy 10-K (2025)
+    </div>
+    <div class="footer-right">
+      <div class="footer-name">Jack Fallon</div>
+      <div class="footer-url">jackfallon.github.io</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ── DATA ──
+const existingDCs = [
+  { name: "Ashburn (Data Center Alley)", lat: 39.0438, lng: -77.4874, detail: "Heart of Data Center Alley. 352+ facilities. Largest data centre cluster on Earth.", size: 10 },
+  { name: "Sterling", lat: 39.0062, lng: -77.4286, detail: "Major cluster along Pacific Blvd and Severn Way.", size: 6 },
+  { name: "Leesburg", lat: 39.1157, lng: -77.5636, detail: "Growing market — Energy Park Drive campus, Greenlin Park.", size: 5 },
+  { name: "Chantilly", lat: 38.8943, lng: -77.4311, detail: "Westfax Drive cluster — major Amazon Web Services presence.", size: 5 },
+  { name: "Herndon", lat: 38.9696, lng: -77.3861, detail: "Park Center Road area data centre cluster.", size: 4 },
+  { name: "Reston", lat: 38.9587, lng: -77.3570, detail: "Mixed facilities including Google offices.", size: 4 },
+  { name: "Manassas (existing)", lat: 38.7509, lng: -77.4753, detail: "Balls Ford Road (Google), Iron Mountain 83-acre campus, AWS on Infantry Ridge Road.", size: 6 },
+  { name: "South Riding", lat: 38.9210, lng: -77.5058, detail: "AWS Sutton Bay facility.", size: 3 },
+  { name: "Dulles / Arcola", lat: 38.9531, lng: -77.4565, detail: "AWS facilities — Howling Rooster Lane area.", size: 4 },
+  { name: "Sandston / Henrico", lat: 37.5210, lng: -77.3164, detail: "Meta Henrico Data Center — 6200 Technology Blvd.", size: 5 },
+  { name: "South Hill", lat: 36.7265, lng: -78.1289, detail: "Microsoft Azure facility — southernmost major Virginia site.", size: 4 },
+];
+
+const proposedDCs = [
+  { name: "Prince William Digital Gateway", lat: 38.78, lng: -77.55, detail: "2,100 acres. 37 buildings. 14 substations. Directly adjacent to Manassas National Battlefield. Legal challenge pending — Virginia Court of Appeals heard arguments Feb 24, 2026.", size: 12, major: true },
+  { name: "Wilderness Crossing", lat: 38.32, lng: -77.75, detail: "2,600+ acres near Wilderness Battlefield (Orange County). On National Trust's 2024 list of 11 Most Endangered Historic Places. Lawsuit filed by American Battlefield Trust.", size: 10, major: true },
+  { name: "Culpeper County proposals", lat: 38.53, lng: -77.89, detail: "Proposals near Brandy Station Battlefield — site of the largest cavalry battle in North America.", size: 5, major: false },
+  { name: "Stafford County", lat: 38.42, lng: -77.41, detail: "Emerging data centre market — multiple proposals in early planning stages.", size: 4, major: false },
+  { name: "Spotsylvania County", lat: 38.20, lng: -77.58, detail: "PowerHouse / Harrison Street campus and other proposals.", size: 4, major: false },
+  { name: "Caroline County", lat: 38.03, lng: -77.35, detail: "Proposed facilities along the I-95 corridor south of Fredericksburg.", size: 3, major: false },
+  { name: "Fauquier County", lat: 38.71, lng: -77.81, detail: "First data centre developer has applied for an onsite primary power production plant (gas).", size: 4, major: false },
+  { name: "Mecklenburg County", lat: 36.68, lng: -78.33, detail: "Proposed facilities in rural south-central Virginia.", size: 3, major: false },
+  { name: "King George County", lat: 38.27, lng: -77.16, detail: "Proposed facilities near the Potomac.", size: 3, major: false },
+];
+
+const threatenedSites = [
+  { name: "Manassas National Battlefield Park", lat: 38.8134, lng: -77.5215, detail: "First and Second Battles of Manassas (Bull Run). Established 1940. Digital Gateway's 2,100 acres sit directly adjacent to western boundary. 107 acres designated 'core battlefield areas' within Gateway zone.", radius: 14 },
+  { name: "Wilderness Battlefield", lat: 38.32, lng: -77.75, detail: "Part of Fredericksburg & Spotsylvania National Military Park. 2,600-acre Wilderness Crossing development approved 2023. National Trust 2024 Most Endangered list.", radius: 12 },
+  { name: "Brandy Station Battlefield", lat: 38.53, lng: -77.89, detail: "Largest cavalry battle in North America (June 1863). Culpeper County. Threatened by data centre proposals in surrounding area.", radius: 10 },
+  { name: "Prince William Forest Park", lat: 38.58, lng: -77.37, detail: "60 acres within congressionally authorised boundary added to data centre overlay district in March 2021.", radius: 10 },
+  { name: "Conway Robinson State Forest", lat: 38.79, lng: -77.54, detail: "Adjacent to Digital Gateway. 444-acre forest managed by Virginia Department of Forestry.", radius: 8 },
+  { name: "Dutch Gap Conservation Area", lat: 37.37, lng: -77.37, detail: "Adjacent to Chesterfield Energy Reliability Center — a 944 MW gas peaker plant approved on the site of a former coal plant. Construction starting 2026.", radius: 9 },
+];
+
+// ── MAP SETUP ──
+const container = document.getElementById('map');
+const width = 760;
+const height = 540;
+
+const svg = d3.select('#map')
+  .append('svg')
+  .attr('viewBox', `0 0 ${width} ${height}`)
+  .attr('preserveAspectRatio', 'xMidYMid meet');
+
+// Projection centered on Northern Virginia → Richmond corridor
+const projection = d3.geoMercator()
+  .center([-77.8, 38.2])
+  .scale(12000)
+  .translate([width / 2, height / 2]);
+
+const path = d3.geoPath().projection(projection);
+
+const tooltip = document.getElementById('tooltip');
+
+function showTooltip(event, name, type, detail) {
+  const typeLabels = { existing: 'Existing data centre', proposed: 'Proposed / under construction', threatened: 'Threatened historic site' };
+  tooltip.innerHTML = `
+    <div class="tt-name">${name}</div>
+    <div class="tt-type ${type}">${typeLabels[type]}</div>
+    <div class="tt-detail">${detail}</div>
+  `;
+  tooltip.style.opacity = 1;
+  tooltip.style.left = (event.clientX + 16) + 'px';
+  tooltip.style.top = (event.clientY - 10) + 'px';
+}
+
+function moveTooltip(event) {
+  const ttRect = tooltip.getBoundingClientRect();
+  let left = event.clientX + 16;
+  if (left + ttRect.width > window.innerWidth - 20) left = event.clientX - ttRect.width - 16;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = (event.clientY - 10) + 'px';
+}
+
+function hideTooltip() { tooltip.style.opacity = 0; }
+
+// Load map data
+const usUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json';
+
+d3.json(usUrl).then(us => {
+  const counties = topojson.feature(us, us.objects.counties);
+  const states = topojson.feature(us, us.objects.states);
+  const stateMesh = topojson.mesh(us, us.objects.states, (a, b) => a !== b);
+
+  // Virginia FIPS = 51
+  const vaCounties = { type: "FeatureCollection", features: counties.features.filter(f => f.id.startsWith('51')) };
+  const surroundingStates = { type: "FeatureCollection", features: states.features.filter(f => ['24','11','54','37','47','21','10','42'].includes(f.id)) };
+  const virginiaState = states.features.find(f => f.id === '51');
+
+  // Key counties to highlight (data center corridor)
+  const highlightFips = [
+    '51107', // Loudoun
+    '51153', // Prince William
+    '51059', // Fairfax
+    '51179', // Stafford
+    '51177', // Spotsylvania
+    '51033', // Caroline
+    '51047', // Culpeper
+    '51061', // Fauquier
+    '51137', // Orange
+  ];
+
+  // Draw surrounding states (muted)
+  svg.selectAll('.county-surrounding')
+    .data(surroundingStates.features)
+    .enter().append('path')
+    .attr('class', 'county')
+    .attr('d', path);
+
+  // Draw Virginia counties
+  svg.selectAll('.county-va')
+    .data(vaCounties.features)
+    .enter().append('path')
+    .attr('class', d => highlightFips.includes(d.id) ? 'county virginia highlight' : 'county virginia')
+    .attr('d', path);
+
+  // Virginia state border
+  svg.append('path')
+    .datum(virginiaState)
+    .attr('class', 'virginia-border')
+    .attr('d', path);
+
+  // State borders for surrounding states
+  svg.append('path')
+    .datum(stateMesh)
+    .attr('class', 'state-border')
+    .attr('d', path);
+
+  // ── Layers ──
+
+  // Threatened sites (drawn first so DCs render on top)
+  const threatenedGroup = svg.append('g').attr('class', 'layer-threatened');
+  threatenedGroup.selectAll('circle')
+    .data(threatenedSites)
+    .enter().append('circle')
+    .attr('class', 'site-threatened')
+    .attr('cx', d => projection([d.lng, d.lat])[0])
+    .attr('cy', d => projection([d.lng, d.lat])[1])
+    .attr('r', d => d.radius)
+    .on('mouseover', function(event, d) { showTooltip(event, d.name, 'threatened', d.detail); })
+    .on('mousemove', moveTooltip)
+    .on('mouseout', hideTooltip);
+
+  // Existing data centres
+  const existingGroup = svg.append('g').attr('class', 'layer-existing');
+  existingGroup.selectAll('circle')
+    .data(existingDCs)
+    .enter().append('circle')
+    .attr('class', 'dc-existing')
+    .attr('cx', d => projection([d.lng, d.lat])[0])
+    .attr('cy', d => projection([d.lng, d.lat])[1])
+    .attr('r', d => d.size)
+    .on('mouseover', function(event, d) { showTooltip(event, d.name, 'existing', d.detail); })
+    .on('mousemove', moveTooltip)
+    .on('mouseout', hideTooltip);
+
+  // Proposed data centres
+  const proposedGroup = svg.append('g').attr('class', 'layer-proposed');
+  proposedGroup.selectAll('circle')
+    .data(proposedDCs)
+    .enter().append('circle')
+    .attr('class', d => d.major ? 'dc-proposed major' : 'dc-proposed')
+    .attr('cx', d => projection([d.lng, d.lat])[0])
+    .attr('cy', d => projection([d.lng, d.lat])[1])
+    .attr('r', d => d.size)
+    .on('mouseover', function(event, d) { showTooltip(event, d.name, 'proposed', d.detail); })
+    .on('mousemove', moveTooltip)
+    .on('mouseout', hideTooltip);
+
+  // Add labels for major sites
+  const labels = [
+    { text: "Ashburn", lat: 39.0438, lng: -77.4874, anchor: "end", dx: -14, dy: 4 },
+    { text: "Digital Gateway", lat: 38.78, lng: -77.55, anchor: "end", dx: -16, dy: 4 },
+    { text: "Wilderness Crossing", lat: 38.32, lng: -77.75, anchor: "end", dx: -14, dy: 4 },
+    { text: "Manassas NBP", lat: 38.8134, lng: -77.5215, anchor: "start", dx: 18, dy: 4 },
+    { text: "Chesterfield gas plant", lat: 37.37, lng: -77.37, anchor: "start", dx: 12, dy: -8 },
+  ];
+
+  svg.selectAll('.label')
+    .data(labels)
+    .enter().append('text')
+    .attr('x', d => projection([d.lng, d.lat])[0] + d.dx)
+    .attr('y', d => projection([d.lng, d.lat])[1] + d.dy)
+    .attr('text-anchor', d => d.anchor)
+    .attr('font-family', 'Inter, sans-serif')
+    .attr('font-size', '10px')
+    .attr('font-weight', '600')
+    .attr('fill', '#374151')
+    .text(d => d.text);
+
+  // ── Toggle controls ──
+  d3.select('#toggle-existing').on('change', function() {
+    existingGroup.style('display', this.checked ? null : 'none');
+  });
+  d3.select('#toggle-proposed').on('change', function() {
+    proposedGroup.style('display', this.checked ? null : 'none');
+  });
+  d3.select('#toggle-threatened').on('change', function() {
+    threatenedGroup.style('display', this.checked ? null : 'none');
+  });
+});
+</script>
+</body>
+</html>
