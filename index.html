@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Virginia's Data Center Sprawl</title>
+<title>The Climate Signal — Virginia's Data Center Sprawl</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
@@ -129,7 +129,7 @@
     width: 18px; height: 18px; border-radius: 3px;
     border: 2px solid #d1d5db; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    : all 0.15s;
+    transition: all 0.15s;
   }
   .toggle-box .check { display: none; font-size: 11px; color: #fff; font-weight: 700; }
   .layer-toggle input:checked + .toggle-box { border-color: transparent; }
@@ -176,6 +176,12 @@
   .callout p { font-size: 13.5px; font-weight: 400; line-height: 1.6; color: #1a1a2e; }
   .callout strong { font-weight: 700; }
 
+  .callout.blue {
+    border-left-color: #2563eb;
+    background: #eff6ff;
+  }
+  .callout.blue .callout-label { color: #2563eb; }
+
   /* ── Footer ── */
   .footer {
     display: flex; justify-content: space-between; align-items: flex-end;
@@ -204,14 +210,14 @@
 <div class="page-wrapper">
 
   <div class="series-bar">
-    <div class="series-name">Virginia's Data Center Sprawl</div>
+    <div class="series-name">The Climate Signal</div>
     <div class="series-divider"></div>
-    <div class="series-topic">Jack Fallon</div>
+    <div class="series-topic">Virginia's Data Center Sprawl</div>
     <div class="series-date">MAR 2026</div>
   </div>
 
   <div class="title-block">
-    <h1>Virginia was supposed to hit 100% clean electricity by 2045.<br><span class="accent">Data centers may have killed that goal.</span></h1>
+    <h1>Virginia was supposed to hit<br>100% clean electricity by 2045.<br><span class="accent">Data centers may have killed that goal.</span></h1>
     <div class="standfirst">
       Virginia's status as the 'world's data center capital' is undergoing a frantic geographic expansion south along the I-95 corridor. This growth is increasingly at odds with the state's decarbonisation pathways. To meet the surging baseload demand, utilities are proposing a pivot back to fossil gas infrastructure and the life-extension of legacy coal units, a move that critics argue shifts the financial burden of the 'digital gold rush' directly onto residential rate-payers.
     </div>
@@ -286,18 +292,12 @@
     <div class="callout-label">The energy transition cost</div>
     <p><strong>Dominion Energy "does not currently see a viable path towards full retirement of all carbon-emitting resources by 2045"</strong>, specifically citing data centre demand. The utility's 2025 plan includes at least 1,447 megawatts (MW) of new fossil fuel generation, including a 944 MW gas plant near Richmond on the site of a former coal plant.</p>
   </div>
-  
+
   <div class="callout blue">
-    <div class="callout-label">The regulatory pivot: SB 253 and the cost-shift</div>
-    <p>The GS-5 Shift: Virginia’s General Assembly passed SB 253, authorizing the SCC to decouple data center infrastructure costs from the residential base. Starting January 2027, the new GS-5 rate class mandates 14-year contracts with stringent minimum demand charges—projected to save average households $5.52/month.
-
-The Storage Gap: While new long-duration energy storage (LDES) mandates are now statutory, the execution gap remains vast. Only 8.94 MW of LDES is currently under construction, a negligible fraction of a data center fleet consuming thousands of megawatts.
-
-The "Behind-the-Meter" Reality: Despite 100% renewable claims, no Virginia hyperscaler currently operates co-located clean energy. All "green" claims rely on offsite Power Purchase Agreements (PPAs), while the physical trend at the meter is pivoting toward on-site gas turbines and diesel backup to ensure firming capacity.
-
-The $1.6B Standoff: A critical fight over $1.6 billion in data center sales tax exemptions remains deadlocked, with a high-stakes special session scheduled for April 23.</p>
+    <div class="callout-label">The policy response — March 2026</div>
+    <p>Virginia's 2026 General Assembly passed SB 253, authorising the State Corporation Commission (SCC) to shift grid infrastructure costs from residential ratepayers to data centres — an estimated $5.52/month reduction per household. A new GS-5 rate class locks data centres into 14-year contracts with minimum demand charges from January 2027. New long-duration energy storage mandates are now law. <strong>But only 8.94 MW of long-duration storage is under construction statewide — against a data centre fleet consuming thousands of MW.</strong> No hyperscaler operates co-located clean energy at any Virginia site. Every clean energy claim in the state is an offsite power purchase agreement. The actual behind-the-meter trend is toward gas turbines and diesel generators. A $1.6 billion tax exemption fight remains unresolved, headed to a special session on April 23.</p>
   </div>
- 
+
   <div class="footer">
     <div class="footer-source">
     <strong>Sources:</strong> 
@@ -314,6 +314,12 @@ The $1.6B Standoff: A critical fight over $1.6 billion in data center sales tax 
       <a href="https://www.npca.org/advocacy/102-keep-massive-industrial-data-centers-away-from-our-national-parks" target="_blank">National Parks Conservation Association</a>
       <span class="source-divider">·</span>
       <a href="https://www.sec.gov/Archives/edgar/data/0000715957/000119312526063120/d-20251231.htm" target="_blank">Dominion Energy 10-K (2025)</a>
+      <br>
+      Virginia SB 253 (2026)
+      <span class="source-divider">·</span>
+      Virginia SCC Case PUR-2025-00058
+      <span class="source-divider">·</span>
+      Virginia Mercury (Mar 2026)
     </div>
     <div class="footer-right">
       <div class="footer-name">Jack Fallon</div>
